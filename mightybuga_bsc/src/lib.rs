@@ -9,6 +9,7 @@ use hal::pac::*;
 use hal::prelude::*;
 use hal::serial::*;
 use hal::timer::SysDelay;
+use hal::adc::Adc;
 
 use engine::engine::Engine;
 use engine::motor::Motor;
@@ -153,6 +154,7 @@ impl Mightybuga_BSC {
         let buzzer = TimerBasedBuzzer::new(dp.TIM3, buzzer_pin);
 
         // Initialize the line sensor array
+        let adc1 = Adc::adc1(dp.ADC1, clocks);
         let line_sensor: LineSensor = LineSensor {
             led: gpiob.pb1.into_push_pull_output(&mut gpiob.crl),
             sensor_0: gpioa.pa0.into_analog(&mut gpioa.crl),
@@ -163,6 +165,7 @@ impl Mightybuga_BSC {
             sensor_5: gpioa.pa5.into_analog(&mut gpioa.crl),
             sensor_6: gpioa.pa6.into_analog(&mut gpioa.crl),
             sensor_7: gpioa.pa7.into_analog(&mut gpioa.crl),
+            adc: adc1,
         };
 
         // Return the initialized struct
