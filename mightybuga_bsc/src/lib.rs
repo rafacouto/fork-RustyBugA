@@ -15,6 +15,7 @@ use engine::motor::Motor;
 use stm32f1xx_hal::timer::PwmChannel;
 
 mod line_sensor;
+use line_sensor::LineSensor;
 
 pub use crate::hal::*;
 
@@ -58,6 +59,8 @@ pub struct Mightybuga_BSC {
             PwmChannel<TIM1, 3>,
         >,
     >,
+    // Line Sensor Array
+    pub line_sensor: LineSensor,
 }
 
 impl Mightybuga_BSC {
@@ -149,6 +152,19 @@ impl Mightybuga_BSC {
         let buzzer_pin = pb4.into_alternate_push_pull(&mut gpiob.crl);
         let buzzer = TimerBasedBuzzer::new(dp.TIM3, buzzer_pin);
 
+        // Initialize the line sensor array
+        let line_sensor: LineSensor = LineSensor {
+            led: gpiob.pb1.into_push_pull_output(&mut gpiob.crl),
+            sensor_0: gpioa.pa0.into_analog(&mut gpioa.crl),
+            sensor_1: gpioa.pa1.into_analog(&mut gpioa.crl),
+            sensor_2: gpioa.pa2.into_analog(&mut gpioa.crl),
+            sensor_3: gpioa.pa3.into_analog(&mut gpioa.crl),
+            sensor_4: gpioa.pa4.into_analog(&mut gpioa.crl),
+            sensor_5: gpioa.pa5.into_analog(&mut gpioa.crl),
+            sensor_6: gpioa.pa6.into_analog(&mut gpioa.crl),
+            sensor_7: gpioa.pa7.into_analog(&mut gpioa.crl),
+        };
+
         // Return the initialized struct
 
         Ok(Mightybuga_BSC {
@@ -157,6 +173,7 @@ impl Mightybuga_BSC {
             leds: Leds { d1 },
             buzzer,
             engine,
+            line_sensor
         })
     }
 }
