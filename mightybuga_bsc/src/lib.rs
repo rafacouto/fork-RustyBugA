@@ -22,8 +22,7 @@ pub use crate::hal::*;
 pub mod timer_based_buzzer;
 use timer_based_buzzer::TimerBasedBuzzer;
 
-mod quadrature_encoder;
-use quadrature_encoder::QuadratureEncoder;
+use hal_encoder_stm32f1xx::tim2_to_tim5::*;
 
 pub mod prelude {
     pub use cortex_m_rt::entry;
@@ -64,8 +63,8 @@ pub struct Mightybuga_BSC {
     pub btn_1: hal_button::Button<gpio::Pin<'B', 13, gpio::Input<PullDown>>, false>,
     pub btn_2: hal_button::Button<gpio::Pin<'C', 15, gpio::Input<PullDown>>, false>,
     pub btn_3: hal_button::Button<gpio::Pin<'C', 14, gpio::Input<PullDown>>, false>,
-    pub encoder_r: QuadratureEncoder,
-    pub encoder_l: QuadratureEncoder,
+    pub encoder_r: IncrementalEncoder,
+    pub encoder_l: IncrementalEncoder,
 }
 
 impl Mightybuga_BSC {
@@ -77,17 +76,18 @@ impl Mightybuga_BSC {
 
         // reset and clock control
         let rcc = dp.RCC;
-        rcc.apb1enr.write(|w| w
-            .tim2en().set_bit()
-            .tim3en().set_bit()
-            .tim4en().set_bit()
-        );
-        rcc.apb2enr.write(|w| w
-            .afioen().set_bit()
-            .iopaen().set_bit()
-            .iopben().set_bit()
-            .iopcen().set_bit()
-        );
+        rcc.apb1enr
+            .write(|w| w.tim2en().set_bit().tim3en().set_bit().tim4en().set_bit());
+        rcc.apb2enr.write(|w| {
+            w.afioen()
+                .set_bit()
+                .iopaen()
+                .set_bit()
+                .iopben()
+                .set_bit()
+                .iopcen()
+                .set_bit()
+        });
 
         // Use external crystal for clock
         let clocks = rcc
@@ -106,7 +106,6 @@ impl Mightybuga_BSC {
         let mut gpiob = dp.GPIOB.split();
         let mut gpioc = dp.GPIOC.split();
 
-        
         // Alternate function I/O remapping
         let mut afio = dp.AFIO.constrain();
         let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
@@ -160,7 +159,8 @@ impl Mightybuga_BSC {
         let engine = Engine::new(motor_left, motor_right);
 
         // Buzzer configuration
-        afio.mapr .modify_mapr(|_, w| unsafe { w.tim3_remap().bits(0b10) });
+        afio.mapr
+            .modify_mapr(|_, w| unsafe { w.tim3_remap().bits(0b10) });
         let buzzer_pin = pb4.into_alternate_push_pull(&mut gpiob.crl);
         let buzzer = TimerBasedBuzzer::new(dp.TIM3, buzzer_pin);
 
@@ -170,11 +170,20 @@ impl Mightybuga_BSC {
         let btn_3 = hal_button::Button::new(gpioc.pc14.into_pull_down_input(&mut gpioc.crh));
 
         // Encoder right
-        let encoder_r = QuadratureEncoder::new(dp.TIM4.deref());
+        let encoder_r = IncrementalEncoder::new(
+            dp.TIM4.deref(),
+            TimerChannels::Ch1Ch2,
+            EncoderPolarity::PolarityBA,
+        );
 
         // Encoder left
-        afio.mapr.modify_mapr(|_, w| unsafe { w.tim2_remap().bits(0b01) });
-        let encoder_l = QuadratureEncoder::new(dp.TIM2.deref());
+        afio.mapr
+            .modify_mapr(|_, w| unsafe { w.tim2_remap().bits(0b01) });
+        let encoder_l = IncrementalEncoder::new(
+            dp.TIM2.deref(),
+            TimerChannels::Ch1Ch2,
+            EncoderPolarity::PolarityBA,
+        );
 
         // Return the initialized struct
         Ok(Mightybuga_BSC {

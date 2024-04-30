@@ -1,11 +1,12 @@
 #![no_std]
 #![cfg_attr(not(doc), no_main)]
 #[warn(dead_code)]
+use panic_halt as _;
 use core::convert::Infallible;
 use core::ops::Shl;
 use mightybuga_bsc as board;
 use mightybuga_bsc::prelude::*;
-use panic_halt as _;
+use hal_encoder_stm32f1xx::EncoderController;
 
 #[entry]
 fn main() -> ! {
@@ -21,15 +22,19 @@ fn main() -> ! {
     print(&mut serial, "move the encoders!\r\n");
     let mut last: u32 = 0;
     loop {
-        let steps_l = encoder_l.get_steps();
-        let steps_r = encoder_r.get_steps();
+        let (delta_l, steps_l) = encoder_l.delta();
+        let (delta_r, steps_r) = encoder_r.delta();
         let next: u32 = (steps_l as u32).shl(16) | (steps_r as u32);
         if last != next {
-            print(&mut serial, "steps: left=");
-            print_number(&mut serial, steps_l as u32);
-            print(&mut serial, " right=");
-            print_number(&mut serial, steps_r as u32);
-            print(&mut serial, "\r\n");
+            print(&mut serial, "(steps,delta): left=(");
+            print_number(&mut serial, steps_l);
+            print(&mut serial, ",");
+            print_number(&mut serial, delta_l);
+            print(&mut serial, ") right=(");
+            print_number(&mut serial, steps_r);
+            print(&mut serial, ",");
+            print_number(&mut serial, delta_r);
+            print(&mut serial, ")\r\n");
             last = next;
         }
 
@@ -46,11 +51,14 @@ fn print<'a>(output: &'a mut dyn embedded_hal::serial::Write<u8, Error = Infalli
 
 fn print_number<'a>(
     output: &'a mut dyn embedded_hal::serial::Write<u8, Error = Infallible>,
-    n: u32,
+    n: isize,
 ) {
     let mut buffer = [b'0'; 10];
     let mut i = 0;
-    let mut n = n;
+    if n < 0 {
+        let _ = nb::block!(output.write(b'-'));
+    }
+    let mut n = n.abs();
     while n > 0 {
         buffer[i] = (n % 10) as u8 + b'0';
         n /= 10;
